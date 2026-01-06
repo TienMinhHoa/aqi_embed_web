@@ -101,7 +101,9 @@ export function AirQualityCard({ aqi, time, locationName }: AirQualityCardProps)
 
         {/* AQI Value - Highlighted */}
         <div className={`text-center py-6 ${aqiInfo.bg} rounded-xl border-2 ${aqiInfo.border}`}>
-          <div className="text-6xl font-bold text-slate-800">{Math.round(aqiValue)}</div>
+          <div className="text-6xl font-bold text-slate-800">
+            {Math.round(aqiValue)}
+          </div>
           <div className={`text-xl font-bold ${aqiInfo.color} mt-2`}>{aqiInfo.level}</div>
           {time && (
             <div className="text-sm text-slate-600 mt-2">📅 {formatDate(time)}</div>

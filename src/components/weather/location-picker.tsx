@@ -10,8 +10,6 @@ import {
 } from "@/components/ui/select"
 import { MapPin, TrendingUp } from "lucide-react"
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -80,8 +78,8 @@ export function LocationPicker({ onLocationChange, weatherCards, selectedProvinc
   const [communeSearch, setCommuneSearch] = useState<string>("")
   const [provinceOpen, setProvinceOpen] = useState(false)
   const [communeOpen, setCommuneOpen] = useState(false)
-  const provinceInputRef = useState<HTMLInputElement | null>(null)[0]
-  const communeInputRef = useState<HTMLInputElement | null>(null)[0]
+  // const provinceInputRef = useState<HTMLInputElement | null>(null)[0]
+  // const communeInputRef = useState<HTMLInputElement | null>(null)[0]
 
   useEffect(() => {
     // Đọc file CSV và parse dữ liệu
@@ -129,7 +127,14 @@ export function LocationPicker({ onLocationChange, weatherCards, selectedProvinc
       })
 
     // Đọc file AQI data
-    fetch("/data/aqi_forecast/aqi_data.csv")
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}${mm}${dd}`;
+    console.log("Loading AQI data for date:", todayStr);
+    const path = `/data/aqi_forecast/${todayStr}.csv`;
+    fetch(path)
       .then((response) => response.text())
       .then((csvText) => {
         const lines = csvText.trim().split("\n")
@@ -138,7 +143,8 @@ export function LocationPicker({ onLocationChange, weatherCards, selectedProvinc
           return {
             commune_id: values[0],
             mean_aqi: parseFloat(values[1]),
-            time: values[2],
+            mean_pm25: parseFloat(values[2]),
+            time: values[3],
           }
         })
         setAqiData(data)
@@ -171,9 +177,6 @@ export function LocationPicker({ onLocationChange, weatherCards, selectedProvinc
                               data.address?.province || 
                               data.address?.state ||
                               data.address?.county
-                // console.log("Detected city/province name:", cityName)
-                // console.log("CityName after trim:", cityName?.trim())
-                // console.log("Provinces array:", provinces.map(p => ({ id: p.id, name: p.name, nameEn: p.nameEn })))
               if (cityName) {
                 const trimmedCity = cityName.trim().normalize('NFC')
                 // Tìm tỉnh khớp với tên
@@ -347,14 +350,6 @@ export function LocationPicker({ onLocationChange, weatherCards, selectedProvinc
     return commune?.name || "Chọn xã/phường"
   }
 
-  const getAQILevel = (aqi: number) => {
-    if (aqi <= 50) return { level: "Tốt", color: "text-green-600", bg: "bg-green-50", border: "border-green-200", chartColor: "#16a34a" }
-    if (aqi <= 100) return { level: "Trung bình", color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-200", chartColor: "#ca8a04" }
-    if (aqi <= 150) return { level: "Kém", color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200", chartColor: "#ea580c" }
-    if (aqi <= 200) return { level: "Xấu", color: "text-red-600", bg: "bg-red-50", border: "border-red-200", chartColor: "#dc2626" }
-    if (aqi <= 300) return { level: "Rất xấu", color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-200", chartColor: "#9333ea" }
-    return { level: "Nguy hại", color: "text-rose-900", bg: "bg-rose-50", border: "border-rose-300", chartColor: "#881337" }
-  }
 
   // Filter provinces based on search
   const filteredProvinces = useMemo(() => {
@@ -399,7 +394,7 @@ export function LocationPicker({ onLocationChange, weatherCards, selectedProvinc
       <div className="space-y-4">
         {/* Card chọn tỉnh */}
         <div className="p-4 bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-white/20">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="inline-flex items-center gap-2 mb-3">
             <MapPin className="w-4 h-4 text-blue-600" />
             <h3 className="text-base font-semibold text-gray-800">Chọn Tỉnh/Thành phố</h3>
           </div>
@@ -777,77 +772,6 @@ export function AQIChart({
           Dự báo AQI {communeName ? `- ${communeName}` : ''}
         </h3>
       </div>
-
-      {/* <div className="h-80">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData}>
-            <defs>
-              <linearGradient id="colorAQI" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis 
-              dataKey="date" 
-              tick={{ fontSize: 12 }}
-              stroke="#6b7280"
-            />
-            <YAxis 
-              tick={{ fontSize: 12 }}
-              stroke="#6b7280"
-              label={{ value: 'AQI', angle: -90, position: 'insideLeft' }}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-              }}
-              formatter={(value: number) => [value.toFixed(0), 'AQI']}
-              labelFormatter={(label) => `Ngày: ${label}`}
-            />
-            <Area
-              type="monotone"
-              dataKey="aqi"
-              stroke="#3b82f6"
-              strokeWidth={2}
-              fill="url(#colorAQI)"
-              dot={{ r: 4, fill: '#3b82f6' }}
-              activeDot={{ r: 6 }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div> */}
-
-      {/* Chú thích */}
-      {/* <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-green-500"></div>
-          <span className="text-xs text-gray-600">Tốt (0-50)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-          <span className="text-xs text-gray-600">TB (51-100)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-          <span className="text-xs text-gray-600">Kém (101-150)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-red-500"></div>
-          <span className="text-xs text-gray-600">Xấu (151-200)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-purple-500"></div>
-          <span className="text-xs text-gray-600">Rất xấu (201-300)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-rose-900"></div>
-          <span className="text-xs text-gray-600">Nguy hại (300)</span>
-        </div>
-      </div> */}
     </div>
   )
 }

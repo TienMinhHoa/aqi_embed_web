@@ -48,16 +48,6 @@ const legendItems = [
   { color: "#881337", label: "Nguy hại (>300)", range: [301, Infinity] },
 ]
 
-// Province name normalization for better matching
-const normalizeProvinceName = (name: string): string => {
-  return name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Remove diacritics
-    .replace(/đ/g, "d")
-    .trim()
-}
-
 // Convert GeoJSON coordinates to SVG path
 const coordinatesToPath = (geometry: { type: string; coordinates: any }, bounds: any, provinceName?: string): string => {
   try {
@@ -134,6 +124,7 @@ export function VietnamMap({ selectedProvinceId, selectedProvinceCommuneIds }: V
   const [hoveredProvince, setHoveredProvince] = useState<string | null>(null)
   const [popup, setPopup] = useState<Popup | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingCommune, setIsLoadingCommune] = useState(false)
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
@@ -152,16 +143,19 @@ export function VietnamMap({ selectedProvinceId, selectedProvinceCommuneIds }: V
     
     const loadData = async () => {
       try {
-        const [geoRes, communeGeoRes, locationRes, aqiRes] = await Promise.all([
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}${mm}${dd}`;
+        const [geoRes, locationRes, aqiRes] = await Promise.all([
           fetch("/data/VN_level2.geojson"),
-          fetch("/data/VN_level3.geojson"),
           fetch("/data/vietnam.csv"),
-          fetch("/data/aqi_forecast/aqi_data.csv"),
+          fetch(`/data/aqi_forecast/${todayStr}.csv`),
         ])
 
-        const [geoJson, communeGeoJson, locationCsv, aqiCsv] = await Promise.all([
+        const [geoJson, locationCsv, aqiCsv] = await Promise.all([
           geoRes.json(),
-          communeGeoRes.json(),
           locationRes.text(),
           aqiRes.text(),
         ])
@@ -221,7 +215,6 @@ export function VietnamMap({ selectedProvinceId, selectedProvinceCommuneIds }: V
           })
         })
         setGeoData(geoJson)
-        setCommuneGeoData(communeGeoJson)
         setProvinceAQI(finalProvinceAQI)
         setIsLoading(false)
       } catch (err) {
@@ -236,6 +229,51 @@ export function VietnamMap({ selectedProvinceId, selectedProvinceCommuneIds }: V
       mounted = false
     }
   }, [])
+
+  // Load GeoJSON của tỉnh được chọn khi chuyển sang chế độ xem xã
+  useEffect(() => {
+    let mounted = true
+    
+    const loadCommuneData = async () => {
+      // Chỉ load khi có tỉnh được chọn và đang ở chế độ commune
+      if (!selectedProvinceId || viewMode !== 'commune') {
+        return
+      }
+
+      try {
+        setIsLoadingCommune(true)
+        console.log(`Loading commune GeoJSON for province: ${selectedProvinceId}`)
+        const communeGeoRes = await fetch(`/data/geojson_commune/${selectedProvinceId}.geojson`)
+        
+        if (!communeGeoRes.ok) {
+          throw new Error(`Failed to load commune data for province ${selectedProvinceId}`)
+        }
+        
+        const communeGeoJson = await communeGeoRes.json()
+        
+        if (!mounted) return
+        
+        setCommuneGeoData(communeGeoJson)
+        console.log(`Successfully loaded ${communeGeoJson.features?.length || 0} communes for province ${selectedProvinceId}`)
+      } catch (err) {
+        console.error(`Error loading commune data for province ${selectedProvinceId}:`, err)
+        // Không set error state, chỉ log để user biết
+        if (mounted) {
+          setCommuneGeoData(null)
+        }
+      } finally {
+        if (mounted) {
+          setIsLoadingCommune(false)
+        }
+      }
+    }
+
+    loadCommuneData()
+    
+    return () => {
+      mounted = false
+    }
+  }, [selectedProvinceId, viewMode])
 
   const getAQIColor = (aqi: number | undefined): string => {
     if (!aqi) return "#d1d5db"
@@ -313,6 +351,13 @@ export function VietnamMap({ selectedProvinceId, selectedProvinceCommuneIds }: V
     const filtered = communeGeoData.features.filter(feature => {
       return communeIdSet.has(feature.properties.id)
     })
+    
+    if (filtered.length === 0) {
+      console.log('No communes matched. Available commune IDs in GeoJSON:', 
+        communeGeoData.features.slice(0, 5).map(f => f.properties.id))
+      console.log('Looking for commune IDs:', Array.from(communeIdSet).slice(0, 5))
+      return []
+    }
 
     // Tính bounds riêng cho các xã đã filter để chúng chiếm hết viewport
     let minLat = Infinity, maxLat = -Infinity
@@ -355,6 +400,7 @@ export function VietnamMap({ selectedProvinceId, selectedProvinceCommuneIds }: V
       })
     
     const validPaths = paths.filter(p => p.path.length > 0)
+    console.log(`Generated ${validPaths.length} valid commune paths`)
     return validPaths
   }, [communeGeoData, communeAQI, viewMode, selectedProvinceCommuneIds])
 
@@ -608,7 +654,7 @@ export function VietnamMap({ selectedProvinceId, selectedProvinceCommuneIds }: V
               )
             })}
             
-            {viewMode === 'commune' && communePaths.map((commune) => {
+            {viewMode === 'commune' && !isLoadingCommune && communePaths.map((commune) => {
               const isHovered = hoveredProvince === commune.communeId
               const hasHovered = hoveredProvince !== null
 
@@ -633,6 +679,12 @@ export function VietnamMap({ selectedProvinceId, selectedProvinceCommuneIds }: V
             })}
           </g>
         </svg>
+
+        {isLoadingCommune && (
+          <div className="absolute inset-0 flex items-center justify-center bg-slate-50/80 backdrop-blur-sm">
+            <div className="text-sm text-slate-600">Đang tải dữ liệu xã...</div>
+          </div>
+        )}
 
         {popup && (
           <div

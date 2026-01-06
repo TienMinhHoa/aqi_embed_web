@@ -1,9 +1,6 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Header } from "@/components/weather/header"
 import { WeatherCard } from "@/components/weather/weather-card"
-import { HumidityCard } from "@/components/weather/humidity-card"
-import { AirQualityCard } from "@/components/weather/air-quality-card"
-import { VietnamMap } from "@/components/weather/vietnam-map"
 import { LocationPicker } from "@/components/weather/location-picker"
 
 interface WeatherData {
@@ -180,19 +177,13 @@ function App() {
             weatherCards={
               selectedLocation ? (
                 <div className="space-y-4">
-                  {/* AQI Card - Prominent - Hiển thị AQI trung bình tỉnh */}
-                  <AirQualityCard 
-                    aqi={provinceAQI?.aqi} 
-                    time={provinceAQI?.time}
-                    locationName={currentProvinceName}
-                  />
-                  
                   {/* Weather Info - Full width */}
                   <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-md p-4 border border-white/20">
                     <WeatherCard 
                       weatherData={weatherData}
                       isLoading={isLoadingWeather}
                       locationName={selectedLocation?.provinceName}
+                      aqi={provinceAQI?.aqi}
                     />
                   </div>
                 </div>
